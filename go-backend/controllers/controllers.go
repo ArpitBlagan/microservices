@@ -5,7 +5,12 @@ import (
 	"fmt"
 	db "go-backend/db"
 	model "go-backend/models"
+	"go-backend/utils"
 	"net/http"
+	"time"
+
+	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type createUser struct{
@@ -14,6 +19,32 @@ type createUser struct{
 	Password string `json:"password"`
 	Image string `json:"image"`
 }
+
+type loginInfo struct{
+	Email string `json:"email"`
+	Password string `json:"password"`
+}
+
+func HandleGetUser(w http.ResponseWriter,r *http.Request){
+	params:=mux.Vars(r)
+	id:=params["id"]
+	var user model.User
+	if err:=db.DB.First(&user,id).Error;err!=nil{
+		fmt.Println(err)
+		http.Error(w,"User not found :(",http.StatusBadRequest)
+		return
+	}
+	res,err:=json.Marshal(user)
+	if err!=nil{
+		fmt.Println(err)
+		http.Error(w,"Not able to marsh the user :(",http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}	
+
 
 func HandleGetUsers(w http.ResponseWriter,r *http.Request){
 	var users []model.User
@@ -47,8 +78,21 @@ func HandleRegisterUser(w http.ResponseWriter,r *http.Request){
 		return
 	}
 	defer r.Body.Close()
+	//Bcrypt the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+	//Create a new user
+	newUser :=createUser{
+		Name:user.Name,
+		Email:user.Email,
+		Password:string(hashedPassword),
+		Image:user.Image,
+	}
 	//Create user entry in DB
-	if err := db.DB.Create(&user).Error; err != nil {
+	if err := db.DB.Create(&newUser).Error; err != nil {
 		// If database insertion fails, return an error
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		fmt.Println("Error while creating user in the database:", err)
@@ -63,4 +107,37 @@ func HandleRegisterUser(w http.ResponseWriter,r *http.Request){
 	w.Header().Set("Content-Type","application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
+}
+
+func HandleUserLogin(w http.ResponseWriter,r *http.Request){
+	var userInfo loginInfo
+	if err:=json.NewDecoder(r.Body).Decode(&userInfo);err!=nil{
+		http.Error(w,"Not able to decode the req body.",http.StatusBadRequest)
+		return
+	}
+	var user model.User
+	// check in the DB if user is registered or not
+	if err:=db.DB.Where("emaiL ?=",userInfo.Email).First(&user).Error;err!=nil{
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(userInfo.Password)); err != nil {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return
+	}
+	token,err:=utils.CreateJwt(user.ID)
+	if err!=nil{
+		http.Error(w,"",http.StatusInternalServerError)
+		return 
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+	})
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Login successful"))
+
 }

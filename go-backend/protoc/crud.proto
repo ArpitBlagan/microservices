@@ -1,0 +1,39 @@
+syntax="proto3";
+import "google/protobuf/empty.proto";
+option go_package="./";
+
+message User{
+    string name=1;
+    string email=2;
+    string password=3;
+    string image=4;
+}
+
+message CreateUserReq{
+    string name=1;
+    string email=2;
+    string password=3;
+    string image=4;
+}
+
+message CreateUserRes{
+    User User=1;
+}
+
+message GetUsersRes{
+    repeated User Users=1;
+}
+
+message FindUserReq{
+    string id=1;
+}
+
+message FindUserRes{
+    User User=1;
+}
+
+service UserRelated{
+    rpc CreateUser(CreateUserReq) returns (CreateUserRes);
+    rpc FindUser(FindUserReq) returns (FindUserRes);
+    rpc GetUsers(google.protobuf.Empty) returns (GetUsersRes);
+}
