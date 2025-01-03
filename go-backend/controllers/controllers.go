@@ -20,6 +20,10 @@ type createUser struct{
 	Image string `json:"image"`
 }
 
+type changeStatusBody struct{
+	Status string `json:"status"`
+}
+
 type loginInfo struct{
 	Email string `json:"email"`
 	Password string `json:"password"`
@@ -140,4 +144,96 @@ func HandleUserLogin(w http.ResponseWriter,r *http.Request){
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Login successful"))
 
+}
+
+func HandleGetRidesHistory(w http.ResponseWriter,r *http.Request){
+	params:=mux.Vars(r)
+	id:=params["id"]
+	var user model.User
+	//First find the user.
+	if err:=db.DB.First(&user,id);err!=nil{
+		http.Error(w,"User not found :(",http.StatusInternalServerError)
+		return
+	}
+	var rides []model.Ride
+	//Find the rides associated with the found userId.
+	if err:=db.DB.Preload("User").Preload("Driver").Where("userId=?",user.ID).Find(&rides).Error; err!=nil{
+		http.Error(w,"Error while finding the associated rides for the user :(",http.StatusInternalServerError)
+		return
+	}
+	//If everythink is perfect return the rides associated with that user id.
+	res,err:=json.Marshal(rides)
+	if err!=nil{
+		http.Error(w,"Error while marshaling the rides",http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
+func HandleGetRide(w http.ResponseWriter,r *http.Request){
+	params:=mux.Vars(r)
+	id:=params["id"]
+	var ride model.Ride
+	if err:=db.DB.First(&ride,id).Error; err!=nil{
+		http.Error(w,"Ride not found :(",http.StatusInternalServerError)
+		return
+	}
+	res,err:=json.Marshal(ride)
+	if err!=nil{
+		http.Error(w,"Error while marshaling the ride",http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
+func SearchRides(w http.ResponseWriter,r *http.Request){
+	//Thinking how we gonna store the user address and geolocation 
+	//and using it for getting the radius diameter for searching the rides
+	// For particular area radius find the rides whose status are pending.
+	var rides []model.Ride
+	if err:=db.DB.Preload("User").Preload("Driver").Where("status=?","Pending").Find(&rides).Error;err!=nil{
+		http.Error(w,"Rides not found :(",http.StatusInternalServerError)
+		return
+	}
+	res,err:=json.Marshal(rides)
+	if err!=nil{
+		http.Error(w,"Error while marshaling the ride",http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
+func ChangeRideStatus(w http.ResponseWriter,r *http.Request){
+	params:=mux.Vars(r)
+	rideId:=params["id"]
+	var reqBody changeStatusBody
+	if errr:=json.NewDecoder(r.Body).Decode(&reqBody).Error; errr!=nil{
+		fmt.Println(errr)
+		http.Error(w,"Error while decoding req body",http.StatusInternalServerError)
+		return
+	}
+	var body changeStatusBody
+	if err:=db.DB.Find(&body,rideId).Error; err!=nil{
+		http.Error(w,"Ride not found :(",http.StatusInternalServerError)
+		return
+	}
+	body.Status=reqBody.Status
+	if err:=db.DB.Save(&body).Error;err!=nil{
+		http.Error(w,"Failed to update the status of ride",http.StatusInternalServerError)
+		return
+	}
+	res,err:=json.Marshal(body)
+	if err!=nil{
+		http.Error(w,"Error while marshaling the ride",http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
 }

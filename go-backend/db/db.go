@@ -22,7 +22,7 @@ func InitDB() error{
 		log.Fatal("Not able to connect to DB")
 		return errors.New("Getting error while connecting to postgres")
 	}
-	DB.AutoMigrate(&model.User{})
+	DB.AutoMigrate(&model.User{},&model.Car{},&model.Driver{},&model.Ride{})
 	fmt.Println("Connect to DB sucessfully :)")
 	return nil
 }
