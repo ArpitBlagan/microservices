@@ -1,0 +1,18 @@
+syntax="proto3";
+
+package Email;
+
+message SendEamilReq{
+    string subject=1;
+    string from=2;
+    string to=3;
+    string body=4;
+}
+
+message SendEamilRes{
+    string message=1;
+}
+
+service CrudService{
+    rpc SendEmail(SendEamilReq) returns (SendEamilRes);
+}
