@@ -13,12 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type createUser struct{
-	Name string `json:"name"`
-	Email string `json:"email"`
-	Password string `json:"password"`
-	Image string `json:"image"`
-}
+
 
 type changeStatusBody struct{
 	Status string `json:"status"`
@@ -75,7 +70,7 @@ func HandleGetUsers(w http.ResponseWriter,r *http.Request){
 
 func HandleRegisterUser(w http.ResponseWriter,r *http.Request){
 	//Extract the body from the request first
-	var user createUser
+	var user model.User
 	if err:=json.NewDecoder(r.Body).Decode(&user); err!=nil{
 		fmt.Println(err)
 		http.Error(w,"Error while decoding the req body :(",http.StatusInternalServerError)
@@ -89,7 +84,7 @@ func HandleRegisterUser(w http.ResponseWriter,r *http.Request){
 		return
 	}
 	//Create a new user
-	newUser :=createUser{
+	newUser :=model.User{
 		Name:user.Name,
 		Email:user.Email,
 		Password:string(hashedPassword),
@@ -102,7 +97,7 @@ func HandleRegisterUser(w http.ResponseWriter,r *http.Request){
 		fmt.Println("Error while creating user in the database:", err)
 		return
 	}
-	data,err:=json.Marshal(user)
+	data,err:=json.Marshal(newUser)
 	if(err!=nil){
 		http.Error(w,"Error while marshaling the user",http.StatusInternalServerError)
 		fmt.Println("Not able to convert the data into json format")
@@ -121,7 +116,8 @@ func HandleUserLogin(w http.ResponseWriter,r *http.Request){
 	}
 	var user model.User
 	// check in the DB if user is registered or not
-	if err:=db.DB.Where("emaiL ?=",userInfo.Email).First(&user).Error;err!=nil{
+	if err:=db.DB.Where("email = ?",userInfo.Email).First(&user).Error;err!=nil{
+		fmt.Println("Error while find user with give email in DB",err)
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
@@ -149,15 +145,17 @@ func HandleUserLogin(w http.ResponseWriter,r *http.Request){
 func HandleGetRidesHistory(w http.ResponseWriter,r *http.Request){
 	params:=mux.Vars(r)
 	id:=params["id"]
+	fmt.Println(id)
 	var user model.User
 	//First find the user.
-	if err:=db.DB.First(&user,id);err!=nil{
+	if err:=db.DB.First(&user,id).Error;err!=nil{
+		fmt.Println(err)
 		http.Error(w,"User not found :(",http.StatusInternalServerError)
 		return
 	}
 	var rides []model.Ride
 	//Find the rides associated with the found userId.
-	if err:=db.DB.Preload("User").Preload("Driver").Where("userId=?",user.ID).Find(&rides).Error; err!=nil{
+	if err:=db.DB.Preload("User").Preload("Driver").Where("user_id =? ",id).Find(&rides).Error; err!=nil{
 		http.Error(w,"Error while finding the associated rides for the user :(",http.StatusInternalServerError)
 		return
 	}
@@ -167,6 +165,101 @@ func HandleGetRidesHistory(w http.ResponseWriter,r *http.Request){
 		http.Error(w,"Error while marshaling the rides",http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
+func HandleCreateRide(w http.ResponseWriter,r *http.Request){
+	var ride model.Ride
+	if err := json.NewDecoder(r.Body).Decode(&ride); err!=nil{
+		fmt.Println(err)
+		http.Error(w,"Error while decoding the body :(",http.StatusInternalServerError)
+		return;
+	}
+	
+	if err := db.DB.Create(&ride).Error; err!=nil{
+		http.Error(w,"Not able to create a new ride :(",http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Ride created sucessfully :)"))
+}
+
+func HandleCreateDriver(w http.ResponseWriter,r *http.Request){
+	var driver model.Driver
+	if err:=json.NewDecoder(r.Body).Decode(&driver);err!=nil{
+		fmt.Println(err)
+		http.Error(w,"Error while decoding the body :(",http.StatusInternalServerError)
+		return;
+	}
+	fmt.Println(driver.CarId)
+
+	var car model.Car
+	if err := db.DB.First(&car, 1).Error; err != nil {
+		// If the car is not found, return an error
+		fmt.Println("Car not found with ID:", 1)
+		http.Error(w, "Car not found for the given CarId", http.StatusBadRequest)
+		return
+	}
+	driver.CarId=1;
+	if err:=db.DB.Debug().Create(&driver).Error;err!=nil{
+		fmt.Println(err)
+		http.Error(w,"Not able to create a new Driver :(",http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Driver created sucessfully :)"))
+}
+
+func HandleCreateCar(w http.ResponseWriter,r *http.Request){
+	var car model.Car
+	if err := json.NewDecoder(r.Body).Decode(&car); err!=nil{
+		fmt.Println(err)
+		http.Error(w,"Error while decoding the body :(",http.StatusInternalServerError)
+		return;
+	}
+	
+	if err := db.DB.Create(&car).Error; err!=nil{
+		http.Error(w,"Not able to create a new car :(",http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Car created sucessfully :)"))
+}
+
+func HandleGetCars(w http.ResponseWriter,r *http.Request){
+	var cars []model.Car
+	if err := db.DB.Find(&cars).Error; err!=nil{
+		http.Error(w,"Not able to create a new car :(",http.StatusInternalServerError)
+		return
+	}
+	res,errr := json.Marshal(cars);
+	if errr!=nil{	
+		http.Error(w,"Erorr while marshaling the result",http.StatusInternalServerError)
+		return
+	}	
+	w.Header().Set("Content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
+func HandleGetDrivers(w http.ResponseWriter,r *http.Request){
+	var drivers []model.Driver
+	if err := db.DB.Find(&drivers).Error; err!=nil{
+		http.Error(w,"Not able to create a new car :(",http.StatusInternalServerError)
+		return
+	}
+	res,errr := json.Marshal(drivers);
+	if errr!=nil{	
+		http.Error(w,"Erorr while marshaling the result",http.StatusInternalServerError)
+		return
+	}	
 	w.Header().Set("Content-type","application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
@@ -195,7 +288,7 @@ func SearchRides(w http.ResponseWriter,r *http.Request){
 	//and using it for getting the radius diameter for searching the rides
 	// For particular area radius find the rides whose status are pending.
 	var rides []model.Ride
-	if err:=db.DB.Preload("User").Preload("Driver").Where("status=?","Pending").Find(&rides).Error;err!=nil{
+	if err:=db.DB.Preload("User").Preload("Driver").Where("status =? ","Pending").Find(&rides).Error;err!=nil{
 		http.Error(w,"Rides not found :(",http.StatusInternalServerError)
 		return
 	}
@@ -213,17 +306,18 @@ func ChangeRideStatus(w http.ResponseWriter,r *http.Request){
 	params:=mux.Vars(r)
 	rideId:=params["id"]
 	var reqBody changeStatusBody
-	if errr:=json.NewDecoder(r.Body).Decode(&reqBody).Error; errr!=nil{
+	if errr:=json.NewDecoder(r.Body).Decode(&reqBody); errr!=nil{
 		fmt.Println(errr)
 		http.Error(w,"Error while decoding req body",http.StatusInternalServerError)
 		return
 	}
-	var body changeStatusBody
-	if err:=db.DB.Find(&body,rideId).Error; err!=nil{
+	var body model.Ride
+	if err:=db.DB.First(&body,rideId).Error; err!=nil{
 		http.Error(w,"Ride not found :(",http.StatusInternalServerError)
 		return
 	}
-	body.Status=reqBody.Status
+	fmt.Println(body.Status)
+	body.Status=model.Status(reqBody.Status)
 	if err:=db.DB.Save(&body).Error;err!=nil{
 		http.Error(w,"Failed to update the status of ride",http.StatusInternalServerError)
 		return
