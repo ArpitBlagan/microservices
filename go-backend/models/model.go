@@ -44,6 +44,10 @@ type Ride struct {
 	gorm.Model
 	Pickup      string `json:"pickup"`
 	Destination string `json:"destination"`
+	PickupLatitude    float64 `json:"pickup_latitude"`
+    PickupLongitude   float64 `json:"pickup_longitude"`
+    DestinationLatitude float64 `json:"destination_latitude"`
+    DestinationLongitude float64 `json:"destination_longitude"`
 	DriverId    uint   `json:"driver_id"`
 	Driver      Driver `gorm:"foreignKey:DriverId" json:"driver"`
 	UserID      uint   `json:"user_id"` // Foreign key for User

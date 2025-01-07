@@ -7,6 +7,7 @@ import (
 	model "go-backend/models"
 	"go-backend/utils"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -283,23 +284,51 @@ func HandleGetRide(w http.ResponseWriter,r *http.Request){
 	w.Write(res)
 }
 
+type RiDe struct{
+	ride model.Ride
+	distance float64
+}
+
 func SearchRides(w http.ResponseWriter,r *http.Request){
 	//Thinking how we gonna store the user address and geolocation 
 	//and using it for getting the radius diameter for searching the rides
 	// For particular area radius find the rides whose status are pending.
-	var rides []model.Ride
-	if err:=db.DB.Preload("User").Preload("Driver").Where("status =? ","Pending").Find(&rides).Error;err!=nil{
-		http.Error(w,"Rides not found :(",http.StatusInternalServerError)
+	query:=r.URL.Query()
+
+	latitude, err := strconv.ParseFloat(query.Get("latitude"), 64)
+	longitude, err := strconv.ParseFloat(query.Get("longitude"), 64)
+	radius, err := strconv.ParseFloat(query.Get("radius"), 64) // radius in kilometers
+
+	if err != nil {
+		http.Error(w, "Invalid query parameters", http.StatusBadRequest)
 		return
 	}
-	res,err:=json.Marshal(rides)
-	if err!=nil{
-		http.Error(w,"Error while marshaling the ride",http.StatusInternalServerError)
+
+	var allRides []model.Ride
+	db.DB.Find(&allRides)
+
+	var nearbyRides []RiDe
+
+	// Filter rides within the radius
+	for _, ride := range allRides {
+		distance := utils.Haversine(latitude, longitude, ride.PickupLatitude, ride.PickupLongitude)
+		if distance <= radius {
+			rideInfo:=RiDe{
+				ride,
+				distance,
+			}
+			nearbyRides = append(nearbyRides,rideInfo)
+		}
+	}
+
+	response, err := json.Marshal(nearbyRides)
+	if err != nil {
+		http.Error(w, "Failed to marshal data", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-type","application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(res)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
 }
 
 func ChangeRideStatus(w http.ResponseWriter,r *http.Request){

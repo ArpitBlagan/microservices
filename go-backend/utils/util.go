@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -41,3 +42,17 @@ func ValidateJwt(tokenString string)(*Claims,error){
     return claims, nil
 }
 
+func Haversine(lat1, lon1, lat2, lon2 float64) float64 {
+	const EarthRadius = 6371 // Earth's radius in km
+	lat1Rad := lat1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	deltaLat := (lat2 - lat1) * math.Pi / 180
+	deltaLon := (lon2 - lon1) * math.Pi / 180
+
+	a := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
+			math.Sin(deltaLon/2)*math.Sin(deltaLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return EarthRadius * c
+}
