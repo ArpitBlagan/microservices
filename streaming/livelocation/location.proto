@@ -1,0 +1,17 @@
+syntax="proto3";
+
+package location;
+
+service LocationService{
+    rpc StreamLocation(stream Request) returns (Response);
+}
+
+message Request{
+    int32 userId=1;
+    double latitude=2;
+    double longitude=3;
+}
+
+message Response{
+    string message=1;
+}

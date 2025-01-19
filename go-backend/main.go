@@ -1,10 +1,13 @@
 package main
 
+//This is the CURD service for our app like register user, create a ride, change ride status etc.
+
 import (
 	"fmt"
 	"net/http"
 
 	db "go-backend/db"
+	"go-backend/redis"
 	route "go-backend/routes"
 
 	"github.com/gorilla/mux"
@@ -18,6 +21,7 @@ import (
 // @BasePath /api/v1
 func main(){
 	fmt.Println("Hello form the server :)")
+	redis.InitRedis()
 	DbErr:=db.InitDB()	
 	if DbErr!=nil{
 		fmt.Println("Error while connecting to the DB :(")

@@ -1,7 +1,6 @@
 package db
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -23,8 +22,7 @@ func InitDB() error{
 	if(err!=nil){
 		fmt.Println("Error while connecting to DB",err)
 		log.Fatal("Not able to connect to DB")
-		panic("Something went wrong :(")
-		return errors.New("Getting error while connecting to postgres")
+		panic("Something went wrong while connecting to postgres :(")
 	}
 	DB.AutoMigrate(&model.User{},&model.Car{},&model.Driver{},&model.Ride{})
 	fmt.Println("Connect to DB sucessfully :)")

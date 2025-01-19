@@ -2,6 +2,8 @@ package route
 
 import (
 	"go-backend/controllers"
+	"go-backend/middleware"
+	"go-backend/redis"
 
 	"github.com/gorilla/mux"
 )
@@ -12,8 +14,9 @@ func HandelRoutes(router *mux.Router){
 	router.HandleFunc("/register",controllers.HandleRegisterUser).Methods("POST")
 
 	//After this all route will first get validate.
-	// router.Use(middleware.ValidateMiddleware)
-	
+	router.Use(middleware.ValidateMiddleware)
+	router.Use(redis.RateLimitRequest)
+	router.Use(redis.GetCache)
 	router.HandleFunc("/getUser",controllers.HandleGetUser).Methods("GET")
 	router.HandleFunc("/getUsers",controllers.HandleGetUsers).Methods("GET")
 	router.HandleFunc("/createDriver",controllers.HandleCreateDriver).Methods("POST")
