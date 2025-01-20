@@ -32,7 +32,7 @@ func main(){
 	// Swagger documentation endpoint
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	// router.Handle("/swagger/", ginSwagger.WrapHandler)
-	route.HandelRoutes(router)
+	route.HandleRoutes(router)
 
 	err:=http.ListenAndServe(":8080",router)
 	if err!=nil{

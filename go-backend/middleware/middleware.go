@@ -11,7 +11,7 @@ const userKey contextKey = "user"
 
 func ValidateMiddleware(next http.Handler) http.Handler{
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("trying to validate token")
+		fmt.Println("trying to validate token :)")
 		cookie, err := r.Cookie("token")
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

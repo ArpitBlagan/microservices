@@ -5,6 +5,7 @@ import (
 	"fmt"
 	db "go-backend/db"
 	model "go-backend/models"
+	"go-backend/redis"
 	"go-backend/utils"
 	"net/http"
 	"strconv"
@@ -14,7 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
+type contextKey string
+const userKey contextKey = "user"
 
 type changeStatusBody struct{
 	Status string `json:"status"`
@@ -40,6 +42,7 @@ func HandleGetUser(w http.ResponseWriter,r *http.Request){
 		http.Error(w,"Not able to marsh the user :(",http.StatusInternalServerError)
 		return
 	}
+	
 	w.Header().Set("Content-type","application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
@@ -58,14 +61,23 @@ func HandleGetUsers(w http.ResponseWriter,r *http.Request){
 		fmt.Println("Error while retrieving users:", err)
 		return
 		}
+		// key string,value string, expirationTime time.Duration
+		userID, ok := r.Context().Value(userKey).(string)
+		if !ok{
+			fmt.Println("Not able to fetch userID :(")
+			return
+		}
+	
 		w.Header().Set("Content-type","application/json")
 		w.WriteHeader(http.StatusOK)
 		data,err:=json.Marshal(users)
+		
 		if(err!=nil){
 			http.Error(w, "Error retrieving users", http.StatusInternalServerError)
 			fmt.Println("Error while marshaling the users into json",err)
 			return;
 		}
+		redis.SetCache(userID,string(data),time.Minute*10)
 		w.Write(data)
 }
 
@@ -126,6 +138,7 @@ func HandleUserLogin(w http.ResponseWriter,r *http.Request){
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
+	fmt.Println(user.ID)
 	token,err:=utils.CreateJwt(user.ID)
 	if err!=nil{
 		http.Error(w,"",http.StatusInternalServerError)
